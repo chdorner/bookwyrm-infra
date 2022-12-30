@@ -1,0 +1,12 @@
+- name: base
+  ansible.builtin.import_playbook: base/playbook.yaml
+- name: redis
+  ansible.builtin.import_playbook: redis/playbook.yaml
+- name: postgresql
+  ansible.builtin.import_playbook: postgresql/playbook.yaml
+- name: nginx
+  ansible.builtin.import_playbook: nginx/playbook.yaml
+- name: backup
+  ansible.builtin.import_playbook: backup/playbook.yaml
+- name: bookwyrm
+  ansible.builtin.import_playbook: bookwyrm/playbook.yaml

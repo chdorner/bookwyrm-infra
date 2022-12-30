@@ -1,0 +1,6 @@
+.become-password
+.vault-password
+
+inventory.yaml
+secret.yaml
+vars.yaml

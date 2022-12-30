@@ -1,0 +1,19 @@
+- name: redis
+  hosts: main
+  become: true
+  tasks:
+
+  - name: install redis
+    ansible.builtin.apt:
+      name: redis
+
+  - name: deny external redis access
+    community.general.ufw:
+      rule: deny
+      port: 6379
+
+  - name: enable and start redis
+    ansible.builtin.service:
+      name: redis
+      enabled: true
+      state: started

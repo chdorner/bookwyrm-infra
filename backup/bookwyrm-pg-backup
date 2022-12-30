@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -e
+
+echo "Backing up PostgreSQL database"
+echo "------------------------------"
+
+TMPDIR=$(mktemp -d)
+echo "Created temporary directory ${TMPDIR}"
+function cleanup {
+  echo "Removing temporary directory"
+  rm -r ${TMPDIR}
+}
+trap cleanup EXIT
+
+BACKUP_FILE="bookwyrm-$(date +%Y%m%d-%H%M%S).sql"
+pg_dump bookwyrm > ${TMPDIR}/${BACKUP_FILE}
+gzip -9 ${TMPDIR}/${BACKUP_FILE}
+
+rclone copy ${TMPDIR}/${BACKUP_FILE}.gz secret:{{ backup_bucket }}/postgres/

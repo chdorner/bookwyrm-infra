@@ -1,0 +1,75 @@
+- name: nginx
+  hosts: main
+  become: true
+  vars_files:
+  - ../secret.yaml
+  tasks:
+
+  - name: install nginx
+    ansible.builtin.apt:
+      name: nginx
+
+  - name: allow external nginx access
+    community.general.ufw:
+      rule: allow
+      port: 80,443
+      proto: tcp
+
+  - name: enable and start nginx
+    ansible.builtin.service:
+      name: nginx
+      enabled: true
+      state: started
+
+  - name: install certbot
+    community.general.snap:
+      name: certbot
+      classic: true
+
+  - name: register certbot
+    ansible.builtin.shell: |
+      certbot -n register --agree-tos --email {{ lookup('ansible.builtin.vars', 'certbot_email') }}
+      touch /etc/letsencrypt/.registered
+    args:
+      creates: /etc/letsencrypt/.registered
+
+  - name: fetch SSL certificate
+    ansible.builtin.shell: certbot run -n --nginx -d {{ lookup('ansible.builtin.vars', 'bookwyrm_domain') }}
+    args:
+      creates: /etc/letsencrypt/live/{{ lookup('ansible.builtin.vars', 'bookwyrm_domain') }}/cert.pem
+
+  - name: create bookwyrm nginx cache directory
+    become: true
+    ansible.builtin.file:
+      name: /var/cache/nginx/bookwyrm_cache
+      state: directory
+
+  - name: install bookwyrm nginx server_config
+    become: true
+    ansible.builtin.copy:
+      src: bookwyrm-server-config
+      dest: /etc/nginx/conf.d/bookwyrm_server_config
+    notify: test nginx config and restart
+
+  - name: install nginx sites-available
+    become: true
+    ansible.builtin.template:
+      src: bookwyrm-site.conf
+      dest: /etc/nginx/sites-available/bookwyrm.conf
+    notify: test nginx config and restart
+
+  - name: enable nginx site
+    become: true
+    ansible.builtin.file:
+      src: /etc/nginx/sites-available/bookwyrm.conf
+      dest: /etc/nginx/sites-enabled/bookwyrm.conf
+      state: link
+
+  handlers:
+    - name: test nginx config and restart
+      ansible.builtin.shell: nginx -t
+      notify: restart nginx
+    - name: restart nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: restarted

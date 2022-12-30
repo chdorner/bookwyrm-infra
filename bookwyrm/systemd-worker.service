@@ -1,0 +1,17 @@
+[Unit]
+Description=Bookwyrm Celery Worker
+After=network.target postgresql.service redis.service
+
+[Service]
+User=bookwyrm
+Group=www-data
+Type=simple
+Restart=always
+WorkingDirectory=/opt/bookwyrm/
+ExecStart=/opt/bookwyrm/venv/bin/celery -A celerywyrm worker -l info -Q high_priority,medium_priority,low_priority,imports
+{% if bookwyrm_worker_cpu_quota is defined and bookwyrm_worker_cpu_quota %}
+CPUQuota={{ bookwyrm_worker_cpu_quota }}
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target

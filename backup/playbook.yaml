@@ -1,0 +1,46 @@
+- name: backup
+  hosts: main
+  vars_files:
+  - ../vars.yaml
+  - ../secret.yaml
+  become: true
+  tasks:
+
+  - name: install rclone
+    ansible.builtin.apt:
+      name: rclone
+
+  - name: ensure rclone config dir exists
+    ansible.builtin.file:
+      name: /home/bookwyrm/.config/rclone
+      state: directory
+  - name: configure rclone
+    ansible.builtin.template:
+      src: rclone.config
+      dest: /home/bookwyrm/.config/rclone/rclone.conf
+
+  - name: Copy bookwyrm-pg-backup
+    ansible.builtin.template:
+      src: bookwyrm-pg-backup
+      dest: /usr/bin/bookwyrm-pg-backup
+      mode: "0755"
+      owner: root
+      group: root
+
+  - name: pg-backup cron
+    become: true
+    ansible.builtin.cron:
+      name: bookwyrm-pg-backup
+      minute: "4"
+      hour: "4"
+      job: /usr/bin/bookwyrm-pg-backup
+      user: bookwyrm
+
+  - name: backup cleanup cron
+    become: true
+    ansible.builtin.cron:
+      name: bookwyrm-backup-cleanup
+      minute: "6"
+      hour: "6"
+      job: rclone delete "r2:secretbearlibrary-backups" --min-age {{ lookup('ansible.builtin.vars', 'backups_keep') }}
+      user: bookwyrm

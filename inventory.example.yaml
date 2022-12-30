@@ -1,0 +1,5 @@
+main:
+  hosts:
+    app:
+      ansible_host: {Host or IP address of your server}
+      ansible_user: {User with which to SSH into (ideally not root!)}

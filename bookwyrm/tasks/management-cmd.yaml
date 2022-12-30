@@ -1,0 +1,10 @@
+- name: management cmd - {{ _slug }}
+  become: true
+  become_user: bookwyrm
+  ansible.builtin.shell:
+    cmd: |
+      venv/bin/python3 manage.py {{ _cmd }}
+      touch /etc/bookwyrm/.management-cmd-{{ _slug }}
+    chdir: /opt/bookwyrm
+  args:
+    creates: /etc/bookwyrm/.management-cmd-{{ _slug }}

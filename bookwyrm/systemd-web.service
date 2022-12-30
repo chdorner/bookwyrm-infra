@@ -1,0 +1,14 @@
+[Unit]
+Description=Bookwyrm Web
+After=network.target postgresql.service redis.service
+
+[Service]
+User=bookwyrm
+Group=www-data
+Type=simple
+Restart=always
+WorkingDirectory=/opt/bookwyrm/
+ExecStart=/opt/bookwyrm/venv/bin/gunicorn bookwyrm.wsgi:application --bind 0.0.0.0:8000 -w 2 --threads 4
+
+[Install]
+WantedBy=multi-user.target

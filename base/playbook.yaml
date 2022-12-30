@@ -1,0 +1,30 @@
+- name: base
+  hosts: main
+  become: true
+  tasks:
+
+  - name: install tools
+    ansible.builtin.apt:
+      update_cache: true
+      name:
+      - fail2ban
+      - snapd
+      - python3-venv
+      - python3-pip
+      - libpq-dev
+      - awscli
+
+  - name: start fail2ban
+    ansible.builtin.service:
+      name: fail2ban
+      enabled: true
+      state: started
+
+  - name: enable ufw
+    community.general.ufw:
+      state: enabled
+
+  - name: install psycopg2
+    become: true
+    ansible.builtin.pip:
+      name: psycopg2

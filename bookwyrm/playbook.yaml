@@ -1,0 +1,177 @@
+- name: bookwyrm
+  hosts: main
+  vars_files:
+  - ../vars.yaml
+  - ../secret.yaml
+  tasks:
+
+  - name: add bookwyrm user
+    become: true
+    ansible.builtin.user:
+      name: bookwyrm
+      groups: www-data
+
+  - name: create bookwyrm directory
+    become: true
+    ansible.builtin.file:
+      path: /opt/bookwyrm
+      state: directory
+      mode: '0755'
+      owner: bookwyrm
+      group: www-data
+
+  - name: create bookwyrm etc directory
+    become: true
+    ansible.builtin.file:
+      path: /etc/bookwyrm
+      state: directory
+      mode: '0755'
+      owner: bookwyrm
+      group: www-data
+
+  - name: clone bookwyrm
+    become: true
+    become_user: bookwyrm
+    ansible.builtin.git:
+      repo: https://github.com/bookwyrm-social/bookwyrm.git
+      dest: /opt/bookwyrm
+      update: no
+      single_branch: yes
+      version: production
+
+  - name: bookwyrm dependencies
+    become: true
+    become_user: bookwyrm
+    ansible.builtin.pip:
+      requirements: /opt/bookwyrm/requirements.txt
+      virtualenv: /opt/bookwyrm/venv
+      virtualenv_command: python3 -m venv
+
+  - name: configure bookwyrm
+    become: true
+    become_user: bookwyrm
+    ansible.builtin.template:
+      src: env
+      dest: /opt/bookwyrm/.env
+    notify:
+    - restart web
+    - restart worker
+    - restart scheduler
+
+  - name: initial setup - db migrate
+    include_tasks:
+      file: tasks/management-cmd.yaml
+    vars:
+      _slug: migrate
+      _cmd: migrate
+
+  - name: initial setup - db init
+    include_tasks:
+      file: tasks/management-cmd.yaml
+    vars:
+      _slug: initdb
+      _cmd: initdb
+
+  - name: initial setup - compile themes
+    include_tasks:
+      file: tasks/management-cmd.yaml
+    vars:
+      _slug: compile_themes
+      _cmd: compile_themes
+
+  - name: initial setup - collect static
+    include_tasks:
+      file: tasks/management-cmd.yaml
+    vars:
+      _slug: collectstatic
+      _cmd: collectstatic --no-input
+
+  - name: systemd config - web service
+    become: true
+    ansible.builtin.template:
+      src: systemd-web.service
+      dest: "/etc/systemd/system/bookwyrm-web.service"
+    notify: restart web
+
+  - name: systemd config - worker service
+    become: true
+    ansible.builtin.template:
+      src: systemd-worker.service
+      dest: "/etc/systemd/system/bookwyrm-worker.service"
+    notify: restart worker
+
+  - name: systemd config - scheduler service
+    become: true
+    ansible.builtin.template:
+      src: systemd-scheduler.service
+      dest: "/etc/systemd/system/bookwyrm-scheduler.service"
+    notify: restart scheduler
+
+  - name: configure assets bucket CORS
+    become: true
+    become_user: bookwyrm
+    block:
+    - name: awscli config dir
+      ansible.builtin.file:
+        name: /home/bookwyrm/.aws
+        state: directory
+
+    - name: copy awscli-config
+      ansible.builtin.copy:
+        src: awscli-config
+        dest: /home/bookwyrm/.aws/config
+
+    - name: copy awscli-credentials
+      ansible.builtin.template:
+        src: awscli-credentials
+        dest: /home/bookwyrm/.aws/credentials
+
+    - name: copy cors config
+      ansible.builtin.template:
+        src: assets-bucket-cors.json
+        dest: /home/bookwyrm/.aws/app_assets-bucket-cors.json
+
+    - name: apply storage cors config
+      become: true
+      become_user: bookwyrm
+      ansible.builtin.shell: |
+        aws s3api put-bucket-cors \
+          --endpoint-url {{ lookup('ansible.builtin.vars', 'bookwyrm_storage_endpoint_url') }} \
+          --bucket {{ bookwyrm_storage_bucket }} \
+          --cors-configuration file:///home/bookwyrm/.aws/app_assets-bucket-cors.json
+        touch /etc/bookwyrm/.cors-config-{{ bookwyrm_storage_bucket }}-{{ bookwyrm_domain }}
+      args:
+        creates: /etc/bookwyrm/.cors-config-{{ bookwyrm_storage_bucket }}-{{ bookwyrm_domain }}
+
+  - name: bookwyrm admin code
+    become: true
+    become_user: bookwyrm
+    ansible.builtin.shell:
+      cmd: venv/bin/python3 manage.py admin_code
+      chdir: /opt/bookwyrm
+    register: admin_code
+  - debug:
+      var: admin_code.stdout_lines
+
+  handlers:
+    - name: restart web
+      become: true
+      ansible.builtin.systemd:
+        daemon_reload: true
+        name: bookwyrm-web
+        enabled: true
+        state: restarted
+    - name: restart worker
+      become: true
+      ansible.builtin.systemd:
+        daemon_reload: true
+        name: bookwyrm-worker
+        enabled: true
+        state: restarted
+    - name: restart scheduler
+      become: true
+      ansible.builtin.systemd:
+        daemon_reload: true
+        name: bookwyrm-scheduler
+        enabled: true
+        state: restarted

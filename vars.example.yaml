@@ -1,0 +1,5 @@
+# Optional CPU limit for the worker service
+bookwyrm_worker_cpu_quota: "50%"
+
+# How long to keep (database) backups on external storage
+backups_keep: "30d"

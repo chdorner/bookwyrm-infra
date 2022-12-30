@@ -1,0 +1,46 @@
+- name: postgresql
+  hosts: main
+  become: true
+  vars_files:
+  - ../secret.yaml
+  tasks:
+
+  - name: install postgresql
+    ansible.builtin.apt:
+      name: postgresql
+
+  - name: deny external postgresql access
+    community.general.ufw:
+      rule: deny
+      port: 5432
+
+  - name: enable and start postgresql
+    ansible.builtin.service:
+      name: postgresql
+      enabled: true
+      state: started
+
+  - name: bookwyrm postgresql user
+    become: true
+    become_user: postgres
+    community.postgresql.postgresql_user:
+      name: bookwyrm
+      password: "{{ lookup('ansible.builtin.vars', 'bookwyrm_pg_password') }}"
+
+  - name: bookwyrm database
+    become: true
+    become_user: postgres
+    community.postgresql.postgresql_db:
+      name: bookwyrm
+      encoding: UNICODE
+      template: template0
+      owner: bookwyrm
+
+  - name: bookwyrm postgresql user grants
+    become: true
+    become_user: postgres
+    community.postgresql.postgresql_privs:
+      type: database
+      db: bookwyrm
+      role: bookwyrm
+      privs: ALL
