@@ -8,7 +8,7 @@ Group=www-data
 Type=simple
 Restart=always
 WorkingDirectory=/opt/bookwyrm/
-ExecStart=/opt/bookwyrm/venv/bin/gunicorn bookwyrm.wsgi:application --bind 0.0.0.0:8000 -w 2 --threads 4
+ExecStart=/opt/bookwyrm/venv/bin/gunicorn bookwyrm.wsgi:application --bind 0.0.0.0:8000 -w {{ bookwyrm_web_workers }} --threads {{ bookwyrm_web_threads }}
 
 [Install]
 WantedBy=multi-user.target
