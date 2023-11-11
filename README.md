@@ -1,3 +1,5 @@
+# MOVED TO CODEBERG - [codeberg.org/chdorner/bookwyrm-infra](https://codeberg.org/chdorner/bookwyrm-infra)
+
 # An opinionated BookWyrm setup
 
 ## Background
